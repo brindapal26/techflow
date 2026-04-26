@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TalentFlow — Social Recruiting Platform",
   description: "Automate social media recruiting with AI-generated posts, ATS sync, and LinkedIn publishing.",
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
