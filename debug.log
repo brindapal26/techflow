@@ -1,0 +1,3 @@
+2026-02-28T23:46:49.339Z [network][POST 200] /__nextjs_original-stack-frames
+  request: {"frames":[],"isServer":false,"isEdgeServer":false,"isAppDirectory":true}
+  response: []
