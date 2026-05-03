@@ -94,7 +94,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
       if (teamRes?.ok) {
         const team = await teamRes.json();
-        setRecruiters(team.filter((u: any) => u.role === 'recruiter'));
+        setRecruiters(team);
       }
       setLoading(false);
     }
