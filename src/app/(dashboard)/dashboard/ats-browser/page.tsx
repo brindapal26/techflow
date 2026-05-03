@@ -242,8 +242,8 @@ export default function AtsBrowserPage() {
   const [debouncedCountry, setDebouncedCountry] = useState('');
   const [state, setState] = useState('');
   const [debouncedState, setDebouncedState] = useState('');
-  // '_3m' = last 3 months (default), '_all' = all time, or a year string like '2025'
-  const [period, setPeriod] = useState('_3m');
+  // '_all' = all time (default), '_3m' = last 3 months, or a year string like '2025'
+  const [period, setPeriod] = useState('_all');
 
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: currentYear - 2019 }, (_, i) => String(currentYear - i));
@@ -268,7 +268,7 @@ export default function AtsBrowserPage() {
   useEffect(() => { debounce(stateDebounce, setDebouncedState, state); }, [state]);
 
   const hasActiveFilters =
-    search || recruiter || status || skills || country || state || period !== '_3m';
+    search || recruiter || status || skills || country || state || period !== '_all';
 
   function clearAllFilters() {
     setSearch('');
@@ -281,7 +281,7 @@ export default function AtsBrowserPage() {
     setDebouncedCountry('');
     setState('');
     setDebouncedState('');
-    setPeriod('_3m');
+    setPeriod('_all');
     setPage(1);
   }
 
