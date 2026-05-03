@@ -216,6 +216,26 @@ export async function browseAtsJobs(
   if (params.search) qp.set('searchkey', params.search);
   if (params.recruiterId) qp.set('primary_recruiter', params.recruiterId);
 
+  // Build date range and pass to Ceipal API (server-side filter).
+  // Ceipal uses from_date / to_date on the custom job posting endpoint.
+  const toDate = new Date();
+  let fromDate: Date | null = null;
+  if (params.year) {
+    fromDate = new Date(params.year, 0, 1);
+    toDate.setFullYear(params.year, 11, 31);
+  } else if (params.last6months) {
+    fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - 6);
+  } else if (params.last3months !== false) {
+    fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - 3);
+  }
+  if (fromDate) {
+    const fmt = (d: Date) => d.toISOString().slice(0, 10); // YYYY-MM-DD
+    qp.set('from_date', fmt(fromDate));
+    qp.set('to_date', fmt(toDate));
+  }
+
   const url = `${endpointUrl}?${qp.toString()}`;
   const res = await fetch(url, { headers: { Authorization: `JWT ${token}` } });
 
@@ -227,7 +247,7 @@ export async function browseAtsJobs(
   const data = await res.json();
   let results: any[] = data?.results ?? (Array.isArray(data) ? data : []);
 
-  // All filters below are client-side — Ceipal API doesn't support them as query params
+  // Client-side filters as fallback (only for fields not supported server-side)
 
   if (params.status) {
     const targetStatus = params.status.toLowerCase();
@@ -259,33 +279,25 @@ export async function browseAtsJobs(
     );
   }
 
-  // Year filter — filter by job_start_date year
-  if (params.year) {
+  // Client-side date fallback: if Ceipal ignored from_date/to_date, apply here.
+  // Use job_start_date; exclude items with no date when a date filter is active.
+  if (fromDate) {
+    const from = fromDate.getTime();
+    const to = toDate.getTime();
     results = results.filter((item) => {
-      if (!item.job_start_date) return false;
-      return new Date(item.job_start_date).getFullYear() === params.year;
-    });
-  } else if (params.last6months) {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 6);
-    results = results.filter((item) => {
-      if (!item.job_start_date) return true;
-      return new Date(item.job_start_date) >= cutoff;
-    });
-  } else if (params.last3months !== false) {
-    // Default: last 3 months (jobs with startDate >= 3 months ago, or no startDate)
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-    results = results.filter((item) => {
-      if (!item.job_start_date) return true;
-      return new Date(item.job_start_date) >= cutoff;
+      const raw = item.job_start_date ?? item.created ?? item.opening_date ?? item.posted_date;
+      if (!raw) return false;
+      const t = new Date(raw).getTime();
+      return !isNaN(t) && t >= from && t <= to;
     });
   }
 
-  // Always sort by startDate descending (latest first)
+  // Sort by date descending (latest first)
   results.sort((a, b) => {
-    const da = a.job_start_date ? new Date(a.job_start_date).getTime() : 0;
-    const db = b.job_start_date ? new Date(b.job_start_date).getTime() : 0;
+    const rawA = a.job_start_date ?? a.created ?? a.opening_date ?? a.posted_date;
+    const rawB = b.job_start_date ?? b.created ?? b.opening_date ?? b.posted_date;
+    const da = rawA ? new Date(rawA).getTime() : 0;
+    const db = rawB ? new Date(rawB).getTime() : 0;
     return db - da;
   });
 
