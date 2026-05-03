@@ -209,18 +209,34 @@ export async function browseAtsJobs(
 ): Promise<{ count: number; numPages: number; results: any[] }> {
   const token = await getCeipalToken(email, password, apiKey);
 
-  const page = params.page ?? 1;
+  const userPage = params.page ?? 1;
+  const hasDateFilter = !!(params.year || params.last6months || (params.last3months !== false));
+  const hasAnyFilter  = hasDateFilter || !!(params.status || params.skills || params.country || params.state);
+
+  // Ceipal's custom endpoint ignores paging_length, ordering, from_date, job_status, etc.
+  // It ALWAYS returns 20 items per page, oldest-first.
+  // Fix: when any filter is active, probe page 1 to get total pages, then reverse-paginate
+  // so user's page 1 → Ceipal's last page (newest jobs), page 2 → second-to-last, etc.
+  let effectivePage = userPage;
+  let totalPagesFromCeipal = 1;
+
+  if (hasAnyFilter) {
+    const probeRes = await fetch(
+      `${endpointUrl}?paging_length=20&page=1`,
+      { headers: { Authorization: `JWT ${token}` } }
+    );
+    if (probeRes.ok) {
+      const probeData = await probeRes.json();
+      totalPagesFromCeipal = probeData?.num_pages ?? Math.ceil((probeData?.count ?? 36911) / 20);
+      effectivePage = Math.max(1, totalPagesFromCeipal - (userPage - 1));
+    }
+  }
+
   const qp = new URLSearchParams();
   qp.set('paging_length', '20');
-  qp.set('page', String(page));
-
-  // ── Server-side params — Ceipal custom job posting endpoint ──────────────
-  if (params.search)      qp.set('searchkey',       params.search);
+  qp.set('page', String(effectivePage));
+  if (params.search)      qp.set('searchkey',        params.search);
   if (params.recruiterId) qp.set('primary_recruiter', params.recruiterId);
-  if (params.status)      qp.set('job_status',       params.status);
-  if (params.skills)      qp.set('primary_skills',   params.skills);
-  if (params.country)     qp.set('country',          params.country);
-  if (params.state)       qp.set('states',           params.state);
 
   // Date range
   const toDate = new Date();
@@ -302,7 +318,7 @@ export async function browseAtsJobs(
 
   return {
     count: data?.count ?? results.length,
-    numPages: data?.num_pages ?? 1,
+    numPages: totalPagesFromCeipal || (data?.num_pages ?? 1),
     results,
   };
 }
