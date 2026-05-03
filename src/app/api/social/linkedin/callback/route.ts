@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const redirectUri = `${process.env.NEXTAUTH_URL}/api/social/linkedin/callback`;
+  const redirectUri = `${process.env.AUTH_URL ?? process.env.NEXTAUTH_URL}/api/social/linkedin/callback`;
 
   // Exchange code for access token
   const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {

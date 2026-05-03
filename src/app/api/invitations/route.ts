@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     })
     .returning();
 
-  const inviteUrl = `${process.env.NEXTAUTH_URL}/invite/${token}`;
+  const inviteUrl = `${process.env.AUTH_URL ?? process.env.NEXTAUTH_URL}/invite/${token}`;
 
   // Send invite email via Resend
   if (process.env.RESEND_API_KEY) {

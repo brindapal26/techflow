@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       )
     );
 
-  const appUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+  const appUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? 'https://techflow-sable.vercel.app';
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'noreply@talentflow.app';
   const companyName = company?.name ?? 'Your Company';
   const senderName = sender?.name ?? sender?.email ?? 'Your Admin';

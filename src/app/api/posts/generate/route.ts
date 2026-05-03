@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Use short redirect URL in the post (e.g. https://app.com/j/<jobId>)
-  const appUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '';
+  const appUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '';
   const postApplyUrl = appUrl ? `${appUrl}/j/${job.id}` : applyUrl;
 
   const prompt = `You are a social recruiting copywriter. Generate 3 distinct LinkedIn post variants for a job opening.
