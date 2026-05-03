@@ -213,11 +213,16 @@ export async function browseAtsJobs(
   const qp = new URLSearchParams();
   qp.set('paging_length', '20');
   qp.set('page', String(page));
-  if (params.search) qp.set('searchkey', params.search);
-  if (params.recruiterId) qp.set('primary_recruiter', params.recruiterId);
 
-  // Build date range and pass to Ceipal API (server-side filter).
-  // Ceipal uses from_date / to_date on the custom job posting endpoint.
+  // ── Server-side params — Ceipal custom job posting endpoint ──────────────
+  if (params.search)      qp.set('searchkey',       params.search);
+  if (params.recruiterId) qp.set('primary_recruiter', params.recruiterId);
+  if (params.status)      qp.set('job_status',       params.status);
+  if (params.skills)      qp.set('primary_skills',   params.skills);
+  if (params.country)     qp.set('country',          params.country);
+  if (params.state)       qp.set('states',           params.state);
+
+  // Date range
   const toDate = new Date();
   let fromDate: Date | null = null;
   if (params.year) {
@@ -231,9 +236,9 @@ export async function browseAtsJobs(
     fromDate.setMonth(fromDate.getMonth() - 3);
   }
   if (fromDate) {
-    const fmt = (d: Date) => d.toISOString().slice(0, 10); // YYYY-MM-DD
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
     qp.set('from_date', fmt(fromDate));
-    qp.set('to_date', fmt(toDate));
+    qp.set('to_date',   fmt(toDate));
   }
 
   const url = `${endpointUrl}?${qp.toString()}`;
@@ -247,43 +252,37 @@ export async function browseAtsJobs(
   const data = await res.json();
   let results: any[] = data?.results ?? (Array.isArray(data) ? data : []);
 
-  // Client-side filters as fallback (only for fields not supported server-side)
+  // ── Client-side fallback filters ─────────────────────────────────────────
+  // Applied after the API call in case Ceipal ignores any of the params above.
 
   if (params.status) {
-    const targetStatus = params.status.toLowerCase();
-    results = results.filter(
-      (item) => (item.job_status ?? '').toLowerCase() === targetStatus
-    );
+    const t = params.status.toLowerCase();
+    results = results.filter((item) => (item.job_status ?? '').toLowerCase() === t);
   }
 
   if (params.skills) {
     const needle = params.skills.toLowerCase();
-    results = results.filter((item) => {
-      const primary = (item.primary_skills ?? '').toLowerCase();
-      const secondary = (item.secondary_skills ?? '').toLowerCase();
-      return primary.includes(needle) || secondary.includes(needle);
-    });
+    results = results.filter((item) =>
+      (item.primary_skills ?? '').toLowerCase().includes(needle) ||
+      (item.secondary_skills ?? '').toLowerCase().includes(needle)
+    );
   }
 
   if (params.country) {
     const needle = params.country.toLowerCase();
-    results = results.filter(
-      (item) => (item.country ?? '').toLowerCase().includes(needle)
-    );
+    results = results.filter((item) => (item.country ?? '').toLowerCase().includes(needle));
   }
 
   if (params.state) {
     const needle = params.state.toLowerCase();
-    results = results.filter(
-      (item) => (item.states ?? item.state ?? '').toLowerCase().includes(needle)
+    results = results.filter((item) =>
+      (item.states ?? item.state ?? '').toLowerCase().includes(needle)
     );
   }
 
-  // Client-side date fallback: if Ceipal ignored from_date/to_date, apply here.
-  // Use job_start_date; exclude items with no date when a date filter is active.
   if (fromDate) {
     const from = fromDate.getTime();
-    const to = toDate.getTime();
+    const to   = toDate.getTime();
     results = results.filter((item) => {
       const raw = item.job_start_date ?? item.created ?? item.opening_date ?? item.posted_date;
       if (!raw) return false;
@@ -292,7 +291,7 @@ export async function browseAtsJobs(
     });
   }
 
-  // Sort by date descending (latest first)
+  // Sort by date descending
   results.sort((a, b) => {
     const rawA = a.job_start_date ?? a.created ?? a.opening_date ?? a.posted_date;
     const rawB = b.job_start_date ?? b.created ?? b.opening_date ?? b.posted_date;
