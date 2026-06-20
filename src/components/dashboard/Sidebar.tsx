@@ -22,6 +22,7 @@ import {
   UserCircle,
   Database,
   Building2,
+  ShieldCheck,
 } from 'lucide-react';
 
 const ALL_MENU_ITEMS = [
@@ -40,6 +41,7 @@ const ALL_MENU_ITEMS = [
 
 const SECONDARY_ITEMS = [
   { icon: Users, label: 'Team', href: '/dashboard/settings/team', roles: ['company_admin'] },
+  { icon: ShieldCheck, label: 'Platform Rules', href: '/dashboard/settings/platform-rules', roles: ['company_admin'] },
   { icon: Settings, label: 'Settings', href: '/dashboard/settings/workspace', roles: ['company_admin'] },
   { icon: UserCircle, label: 'My Profile', href: '/dashboard/settings/profile', roles: ['company_admin', 'recruiter'] },
 ];

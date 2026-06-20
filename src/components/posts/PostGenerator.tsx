@@ -25,7 +25,16 @@ import {
   ImageIcon,
   X,
   Upload,
+  CalendarClock,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -75,7 +84,6 @@ function PostGeneratorInner() {
   const [highlights, setHighlights] = useState('');
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState(0);
-  const [applyUrl, setApplyUrl] = useState('');
   const [company, setCompany] = useState<{ name: string; website?: string | null; logoUrl?: string | null } | null>(null);
   const [imageUrl, setImageUrl] = useState('');
   const [imageInput, setImageInput] = useState('');
@@ -86,6 +94,10 @@ function PostGeneratorInner() {
   const [saveSuccess, setSaveSuccess] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [scheduling, setScheduling] = useState(false);
   const router = useRouter();
 
   // Ref to track which jobId we've already attempted image resolution for
@@ -161,7 +173,6 @@ function PostGeneratorInner() {
       }
       setVariants(data.variants ?? []);
       setSelectedVariant(0);
-      setApplyUrl(data.job?.applyUrl ?? '');
       setPublishResult(null);
       setPhase('results');
     } catch {
@@ -585,7 +596,7 @@ function PostGeneratorInner() {
             <Button
               variant="outline"
               className="flex-1 h-11 gap-2"
-              disabled={saving || publishing}
+              disabled={saving || publishing || scheduling}
               onClick={async () => {
                 if (!selectedJobId || !current) return;
                 setSaving(true);
@@ -609,11 +620,25 @@ function PostGeneratorInner() {
               }}
             >
               {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save as Draft
+              Save Draft
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 h-11 gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              disabled={publishing || saving || scheduling}
+              onClick={() => {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                setScheduleDate(tomorrow.toISOString().split('T')[0]);
+                setScheduleOpen(true);
+              }}
+            >
+              <CalendarClock className="h-4 w-4" />
+              Schedule
             </Button>
             <Button
               className="flex-1 h-11 bg-[#0A66C2] hover:bg-[#004182] gap-2"
-              disabled={publishing || saving}
+              disabled={publishing || saving || scheduling}
               onClick={async () => {
                 if (!selectedJobId || !current) return;
                 setPublishing(true);
@@ -645,9 +670,98 @@ function PostGeneratorInner() {
               {publishing
                 ? <RefreshCw className="h-4 w-4 animate-spin" />
                 : <Send className="h-4 w-4" />}
-              {publishing ? 'Publishing...' : 'Publish to LinkedIn'}
+              {publishing ? 'Publishing...' : 'Publish Now'}
             </Button>
           </div>
+
+          <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CalendarClock className="h-5 w-5 text-indigo-600" />
+                  Schedule Post
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="schedule-date">Date</Label>
+                  <Input
+                    id="schedule-date"
+                    type="date"
+                    value={scheduleDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setScheduleDate(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="schedule-time">Time</Label>
+                  <Input
+                    id="schedule-time"
+                    type="time"
+                    value={scheduleTime}
+                    onChange={e => setScheduleTime(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                {scheduleDate && scheduleTime && (
+                  <p className="text-xs text-muted-foreground bg-slate-50 rounded-lg px-3 py-2">
+                    Will be scheduled for{' '}
+                    <span className="font-semibold text-foreground">
+                      {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString(undefined, {
+                        weekday: 'short', month: 'short', day: 'numeric',
+                        hour: 'numeric', minute: '2-digit',
+                      })}
+                    </span>
+                  </p>
+                )}
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setScheduleOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-indigo-600 hover:bg-indigo-700 gap-2"
+                  disabled={!scheduleDate || !scheduleTime || scheduling}
+                  onClick={async () => {
+                    if (!selectedJobId || !current || !scheduleDate || !scheduleTime) return;
+                    setScheduling(true);
+                    try {
+                      const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+                      const res = await fetch('/api/posts/schedules', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          jobId: selectedJobId,
+                          platform,
+                          caption: current.caption,
+                          hashtags: current.hashtags,
+                          imageUrl: imageUrl || undefined,
+                          scheduledAt,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setScheduleOpen(false);
+                        setPublishResult({ type: 'success', msg: `Scheduled for ${new Date(data.scheduledAt).toLocaleString()}` });
+                        setTimeout(() => router.push('/dashboard/posts'), 1800);
+                      } else {
+                        setPublishResult({ type: 'error', msg: data.error ?? 'Scheduling failed.' });
+                        setScheduleOpen(false);
+                      }
+                    } catch {
+                      setPublishResult({ type: 'error', msg: 'Network error — please try again.' });
+                      setScheduleOpen(false);
+                    }
+                    setScheduling(false);
+                  }}
+                >
+                  {scheduling ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
+                  {scheduling ? 'Scheduling...' : 'Confirm Schedule'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

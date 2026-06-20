@@ -82,3 +82,15 @@ Schema enum: `['greenhouse', 'lever', 'workday', 'smartrecruiters', 'bamboohr', 
 - `lucide-react` for icons
 - `recharts` for charts, `@fullcalendar/*` for the content calendar, `mapbox-gl` for job maps
 - Animations: `animate-in fade-in` (Tailwind animate classes from `tw-animate-css`)
+
+## Pre-checkin rule
+
+**Always run `/precheck` before committing or pushing.** This is mandatory — do not skip it.
+
+The `/precheck` skill (`.claude/commands/precheck.md`) checks:
+1. Hardcoding scan — no UUIDs, emails, or API keys in source
+2. Auth + tenant isolation — every API route has `auth()` and `companyId` scope
+3. Short URL — LinkedIn posts use `/j/{jobId}` not raw career page URL
+4. Build + lint — `npm run lint` then `npm run build`
+5. Job assignment API — returns 401 when unauthenticated, PATCH is admin-only
+6. Post generator API — returns 401 unauthenticated, uses env vars not hardcoded keys

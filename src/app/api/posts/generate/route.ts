@@ -5,6 +5,15 @@ import { db } from '@/lib/db';
 import { jobs, companies } from '@/lib/db/schema';
 import { auth } from '@/lib/auth';
 
+function generateShortCode(length = 7): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
@@ -40,9 +49,30 @@ export async function POST(req: NextRequest) {
     applyUrl = `${company.careerPageUrl}?job_id=${encodeURIComponent(job.externalId)}`;
   }
 
-  // Use short redirect URL in the post (e.g. https://app.com/j/<jobId>)
-  const appUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '';
-  const postApplyUrl = appUrl ? `${appUrl}/j/${job.id}` : applyUrl;
+  // Assign a short code to this job if it doesn't have one yet
+  let shortCode = job.shortCode;
+  if (!shortCode) {
+    let candidate = generateShortCode();
+    // Retry on collision (astronomically rare but handled)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const [updated] = await db
+          .update(jobs)
+          .set({ shortCode: candidate })
+          .where(and(eq(jobs.id, job.id), eq(jobs.companyId, currentUser.companyId)))
+          .returning({ shortCode: jobs.shortCode });
+        shortCode = updated?.shortCode ?? candidate;
+        break;
+      } catch {
+        candidate = generateShortCode();
+      }
+    }
+  }
+
+  const appUrl = process.env.APP_URL ?? '';
+  const postApplyUrl = appUrl && shortCode
+    ? `${appUrl}/j/${shortCode}`
+    : applyUrl;
 
   const prompt = `You are a social recruiting copywriter. Generate 3 distinct LinkedIn post variants for a job opening.
 

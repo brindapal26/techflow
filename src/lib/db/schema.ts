@@ -156,6 +156,7 @@ export const jobs = pgTable('jobs', {
   salaryMax: integer('salary_max'),
   currency: text('currency').default('USD'),
   applyUrl: text('apply_url'),
+  shortCode: text('short_code').unique(),
   status: text('status', { enum: ['open', 'closed', 'filled'] }).default('open').notNull(),
   isPriority: boolean('is_priority').default(false).notNull(),
   postedDate: date('posted_date'),
